@@ -1,0 +1,675 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>계산식 리니지 맵</title>
+<style>
+  :root{
+    --bg:#0f1115; --panel:#161920; --line:#252a35; --ink:#e6e9ef; --dim:#8a93a6;
+    --calc:#4c8dff; --param:#c88cff; --source:#3ec9a7; --sheet:#ffb547; --dash:#ff7a7a;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+       font:13px/1.55 "Pretendard","Malgun Gothic",system-ui,sans-serif}
+  #app{display:grid;grid-template-columns:300px 1fr;height:100vh}
+  aside{border-right:1px solid var(--line);display:flex;flex-direction:column;min-height:0}
+  header{padding:12px 14px;border-bottom:1px solid var(--line)}
+  h1{font-size:14px;margin:0 0 8px}
+  #btnlang{background:var(--panel);border:1px solid var(--line);color:var(--ink);
+       border-radius:4px;padding:2px 8px;cursor:pointer;font:11px inherit;flex:none}
+  #btnlang:hover{background:#222836}
+  .stat{color:var(--dim);font-size:11px;line-height:1.7}
+  input[type=search]{width:100%;padding:7px 9px;background:#0b0d12;color:var(--ink);
+       border:1px solid var(--line);border-radius:5px;font:inherit}
+  #list{overflow-y:auto;flex:1;min-height:0}
+  .folder-head{padding:7px 14px;cursor:pointer;display:flex;gap:6px;align-items:center;
+       color:var(--dim);font-size:11px;background:#12151c;border-bottom:1px solid #1b1f28;user-select:none}
+  .folder-head:hover{color:var(--ink)}
+  .folder-head .chev{display:inline-block;transition:transform .12s;font-size:9px}
+  .folder-head.collapsed .chev{transform:rotate(-90deg)}
+  .row{padding:6px 14px;cursor:pointer;border-bottom:1px solid #1b1f28;
+       display:flex;gap:7px;align-items:baseline}
+  .row:hover{background:#1c2029}
+  .row[aria-selected=true]{background:#20283a}
+  .row b{font-weight:500;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .dot{width:7px;height:7px;border-radius:50%;flex:none}
+  .fan{color:var(--dim);font-size:11px;font-variant-numeric:tabular-nums}
+  main{display:flex;flex-direction:column;min-width:0;min-height:0}
+  nav{display:flex;gap:2px;padding:8px 12px 0;border-bottom:1px solid var(--line)}
+  nav button{background:none;border:0;border-bottom:2px solid transparent;color:var(--dim);
+       padding:6px 12px;cursor:pointer;font:inherit;border-radius:4px 4px 0 0}
+  nav button[aria-pressed=true]{color:var(--ink);border-bottom-color:var(--calc)}
+  .pane{flex:1;overflow:auto;min-height:0;display:none}
+  .pane[data-on]{display:block}
+  #graphwrap{display:flex;flex-direction:column;position:relative}
+  #mini{position:absolute;right:14px;top:46px;width:190px;height:140px;cursor:crosshair;
+       background:#0b0d12e6;border:1px solid var(--line);border-radius:6px}  /* 크기는 JS가 내용에 맞춘다 */
+  #viewrect{fill:#4c8dff1f;stroke:var(--calc);stroke-width:1.2}
+  #wslabel{display:inline-flex;align-items:center;gap:4px;white-space:nowrap}
+  .zoom{margin-left:12px;display:flex;gap:4px;align-items:center}
+  .zoom button{background:var(--panel);border:1px solid var(--line);color:var(--ink);
+       border-radius:4px;padding:2px 9px;cursor:pointer;font:inherit}
+  .zoom button:hover{background:#222836}
+  .zoom button[aria-pressed=true]{border-color:var(--calc);color:var(--calc)}
+  .zoom button:disabled{opacity:.4;cursor:default}
+  svg{flex:1;min-height:0;width:100%;background:
+       radial-gradient(circle at 1px 1px,#1c212b 1px,transparent 0) 0 0/22px 22px}
+  .node rect{fill:var(--panel);stroke-width:1.5}
+  .node text{fill:var(--ink);font-size:11px;pointer-events:none}
+  .node.on rect{fill:#2b3446;stroke-width:2.5}
+  .node{cursor:pointer}
+  .edge{fill:none;stroke:#39415280;stroke-width:1.4}
+  .edge.hot{stroke:var(--calc);stroke-width:2}
+  #detail{border-top:1px solid var(--line);padding:12px 16px;max-height:40%;overflow:auto;
+       background:#12151c}
+  pre{background:#0b0d12;border:1px solid var(--line);border-radius:5px;padding:9px 11px;
+       overflow:auto;margin:6px 0;font:12px/1.5 "Cascadia Mono",Consolas,monospace;
+       white-space:pre-wrap;word-break:break-all}
+  .tag{display:inline-block;padding:1px 7px;border-radius:99px;font-size:11px;
+       border:1px solid var(--line);color:var(--dim);margin-right:5px}
+  .draft{border-color:#7a5c1e;color:#ffc65c;background:#2a2113}
+  table{border-collapse:collapse;width:100%;font-size:12px}
+  th,td{border-bottom:1px solid var(--line);padding:6px 9px;text-align:left}
+  th{color:var(--dim);font-weight:500;position:sticky;top:0;background:var(--bg)}
+  .warn{border-left:3px solid #7a5c1e;background:#1e1a12;padding:9px 12px;margin:10px 0;
+       color:#ffce7a;font-size:12px}
+  .fref{cursor:pointer;color:var(--calc);border-bottom:1px dotted currentColor}
+  .fref:hover{color:#89b4ff}
+  .pad{padding:14px 16px}
+  h2{font-size:13px;margin:16px 0 8px}
+  h2:first-child{margin-top:0}
+  .muted{color:var(--dim)}
+  .legend{display:flex;gap:12px;padding:7px 14px;font-size:11px;color:var(--dim);
+       border-bottom:1px solid var(--line);flex-wrap:wrap}
+  .legend span{display:flex;align-items:center;gap:5px}
+</style>
+</head>
+<body>
+<div id="app">
+  <aside>
+    <header>
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <h1 data-i18n="app_title" style="margin:0">계산식 리니지 맵</h1>
+        <button id="btnlang" title="Switch UI language / 언어 전환">EN</button>
+      </div>
+      <div class="stat" id="stats"></div>
+    </header>
+    <div style="padding:10px 14px"><input type="search" id="q" data-i18n-ph="search_ph" placeholder="필드 검색"></div>
+    <div id="list"></div>
+  </aside>
+  <main>
+    <nav>
+      <button data-tab="graph" aria-pressed="true" data-i18n="tab_graph">리니지</button>
+      <button data-tab="merge" data-i18n="tab_merge">통합 후보</button>
+      <button data-tab="rename" data-i18n="tab_rename">이름 점검</button>
+      <button data-tab="misc" data-i18n="tab_misc">미사용·복잡도</button>
+    </nav>
+    <div class="pane" id="graph" data-on>
+      <div id="graphwrap" style="height:100%">
+        <div class="legend">
+          <span><i class="dot" style="background:var(--source)"></i><span data-i18n="legend_source">원본컬럼</span></span>
+          <span><i class="dot" style="background:var(--param)"></i><span data-i18n="legend_param">파라미터</span></span>
+          <span><i class="dot" style="background:var(--calc)"></i><span data-i18n="legend_calc">계산식</span></span>
+          <span><i class="dot" style="background:var(--sheet)"></i><span data-i18n="legend_sheet">시트</span></span>
+          <span><i class="dot" style="background:var(--dash)"></i><span data-i18n="legend_dash">대시보드</span></span>
+          <span class="muted" data-i18n="legend_hint">· 휠=확대 드래그=이동 · 우상단 미니맵=위치 이동 · 좌→우 = 만들어지는 순서(역방향 시 반대) · 빈 공간 클릭=전체 맵</span>
+          <label id="wslabel" style="cursor:pointer"><input type="checkbox" id="ws"> <span data-i18n="ws_label">시트·대시보드 포함</span></label>
+          <span id="clip" class="muted" style="margin-left:auto"></span>
+          <span class="zoom">
+            <button id="btnfull" aria-pressed="false" data-i18n="fullmap_btn" data-i18n-title="fullmap_title" title="원본컬럼·파라미터·계산식 전체를 한 번에 그린다">전체 맵</button>
+            <button id="btnrev" aria-pressed="false" data-i18n="reverse_btn" data-i18n-title="reverse_title" title="대시보드→시트→계산식→파라미터→원본 순서로 뒤집어 본다">⇄ 역방향</button>
+            <button id="zout" data-i18n-title="zoom_out_title" title="축소">−</button>
+            <button id="zin" data-i18n-title="zoom_in_title" title="확대">+</button>
+            <button id="zfit" data-i18n="zoom_fit_btn" data-i18n-title="zoom_fit_title" title="화면에 맞춤">맞춤</button>
+          </span>
+        </div>
+        <svg id="svg"><g id="cam"></g></svg>
+        <svg id="mini" viewBox="0 0 190 140"><g id="minimap"></g><rect id="viewrect"/></svg>
+        <div id="detail"><span class="muted">왼쪽에서 필드를 고르면 계보가 그려진다.</span></div>
+      </div>
+    </div>
+    <div class="pane pad" id="merge"></div>
+    <div class="pane pad" id="rename"></div>
+    <div class="pane pad" id="misc"></div>
+  </main>
+</div>
+<script>
+const DATA = __DATA__;
+const N = new Map(DATA.nodes.map(n => [n.id, n]));
+const UP = new Map(), DOWN = new Map();
+for (const e of DATA.edges) {
+  (UP.get(e.to)   ?? UP.set(e.to, []).get(e.to)).push(e.from);
+  (DOWN.get(e.from) ?? DOWN.set(e.from, []).get(e.from)).push(e.to);
+}
+const COLOR = {source:'--source', param:'--param', calc:'--calc', sheet:'--sheet', dashboard:'--dash'};
+const css = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const fanIn = id => (DOWN.get(id) ?? []).filter(d => ['calc','param'].includes(N.get(d).kind)).length;
+
+/* ---- 다국어 ----
+   메뉴명·버튼명·범례 등 UI 뼈대 텍스트만 다룬다. 필드 캡션·수식·설명, 그리고
+   통합후보/이름점검/미사용·복잡도 탭 안의 분석 문구는 사용자 데이터/분석 내용이라
+   대상에서 뺐다(요청 범위: "메뉴명, 버튼명, 범례와 같은 영역"). */
+const I18N = {
+  app_title: {ko: '계산식 리니지 맵', en: 'Calculation Lineage Map'},
+  search_ph: {ko: '필드 검색', en: 'Search fields'},
+  tab_graph: {ko: '리니지', en: 'Lineage'},
+  tab_merge: {ko: '통합 후보', en: 'Merge Candidates'},
+  tab_rename: {ko: '이름 점검', en: 'Naming Check'},
+  tab_misc: {ko: '미사용·복잡도', en: 'Unused & Complexity'},
+  legend_source: {ko: '원본컬럼', en: 'Data Source'},
+  legend_param: {ko: '파라미터', en: 'Parameter'},
+  legend_calc: {ko: '계산식', en: 'Calculation'},
+  legend_sheet: {ko: '시트', en: 'Sheet'},
+  legend_dash: {ko: '대시보드', en: 'Dashboard'},
+  legend_hint: {ko: '· 휠=확대 드래그=이동 · 우상단 미니맵=위치 이동 · 좌→우 = 만들어지는 순서(역방향 시 반대) · 빈 공간 클릭=전체 맵',
+                en: '· Wheel=zoom Drag=pan · Minimap (top right)=jump · Left→right = build order (reversed when flipped) · Click empty space=full map'},
+  ws_label: {ko: '시트·대시보드 포함', en: 'Include sheets & dashboards'},
+  fullmap_btn: {ko: '전체 맵', en: 'Full Map'},
+  fullmap_title: {ko: '원본컬럼·파라미터·계산식 전체를 한 번에 그린다', en: 'Draw all data sources, parameters, and calculations at once'},
+  reverse_btn: {ko: '⇄ 역방향', en: '⇄ Reverse'},
+  reverse_title: {ko: '대시보드→시트→계산식→파라미터→원본 순서로 뒤집어 본다', en: 'Flip to Dashboard→Sheet→Calculation→Parameter→Source order'},
+  zoom_out_title: {ko: '축소', en: 'Zoom out'},
+  zoom_in_title: {ko: '확대', en: 'Zoom in'},
+  zoom_fit_btn: {ko: '맞춤', en: 'Fit'},
+  zoom_fit_title: {ko: '화면에 맞춤', en: 'Fit to screen'},
+  detail_upstream: {ko: '상위 계산식', en: 'Upstream'},
+  detail_downstream: {ko: '하위 계산식', en: 'Downstream'},
+  detail_none: {ko: '없음', en: 'None'},
+  detail_draft: {ko: '설명 초안', en: 'Draft description'},
+  detail_nodesc: {ko: '설명 없음', en: 'No description'},
+  detail_layer: {ko: '{n}층', en: 'Layer {n}'},
+  detail_refcount: {ko: '참조 {n}회', en: 'Referenced {n}×'},
+  detail_used_sheet_dash: {ko: '사용 시트 {a} · 대시보드 {b}', en: 'Used in {a} sheets · {b} dashboards'},
+  detail_sheet_fields: {ko: '사용 필드 {a} · 표시 대시보드 {b}', en: '{a} fields used · shown on {b} dashboards'},
+  detail_dash_sheets: {ko: '포함 시트 {a}', en: 'Contains {a} sheets'},
+  clip_full: {ko: '· 전체 {n}노드 · 엣지 {e}', en: '· {n} nodes · {e} edges (full map)'},
+  clip_cut: {ko: '· {n}개에서 잘림 — 상세의 목록을 보라', en: '· Clipped at {n} — see the list in the detail panel'},
+  tbl_empty: {ko: '해당 없음', en: 'None'},
+  th_field: {ko: '필드', en: 'Field'},
+  th_formula: {ko: '수식', en: 'Formula'},
+  th_similarity: {ko: '유사도', en: 'Similarity'},
+  th_field_a: {ko: '필드 A', en: 'Field A'},
+  th_field_b: {ko: '필드 B', en: 'Field B'},
+  th_reason: {ko: '이유', en: 'Reason'},
+  th_type: {ko: '종류', en: 'Type'},
+  th_refcount: {ko: '참조 수', en: 'References'},
+  th_length: {ko: '길이', en: 'Length'},
+  th_layer: {ko: '층', en: 'Layer'},
+  th_reference: {ko: '참조', en: 'Reference'},
+  merge_h_identical: {ko: '완전 동일 로직', en: 'Identical Logic'},
+  merge_h_similar: {ko: '유사 로직 ({n}쌍)', en: 'Similar Logic ({n} pairs)'},
+  merge_similar_hint: {ko: '파라미터 하나로 합칠 수 있는지 확인하라. 근거: 강함.',
+                       en: 'Check whether these can be merged into a single parameter. Confidence: strong.'},
+  rename_warn: {ko: '근거가 약한 분석이다. 이미 존재하는 접두어 패밀리에서 벗어난 것만 지적한다. 전면 리네임 제안이 아니다.',
+                en: 'This is a weak-confidence check. It only flags names that fall outside an existing prefix family — not a full rename proposal.'},
+  rename_prefix_label: {ko: '접두어 패밀리: ', en: 'Prefix families: '},
+  misc_h_unused: {ko: '미사용 후보', en: 'Unused Candidates'},
+  misc_unused_warn: {ko: '대시보드 파라미터 컨트롤로만 쓰이는 파라미터는 시트 의존성에 잡히지 않는다. 지우기 전에 반드시 대시보드에서 직접 확인하라.',
+                     en: 'Parameters used only as dashboard controls are not captured by sheet dependencies. Verify directly on the dashboard before deleting.'},
+  misc_h_hubs: {ko: '재사용 허브', en: 'Reuse Hubs'},
+  misc_leaves: {ko: '어떤 수식도 참조하지 않는 말단 계산식 {n}개 · LOD 계산식 {m}개',
+                en: '{n} leaf calculations referenced by nothing · {m} LOD calculations'},
+  misc_h_complex: {ko: '긴 수식', en: 'Long Formulas'},
+  misc_h_unresolved: {ko: '해석 실패한 참조', en: 'Unresolved References'},
+  misc_unresolved_hint: {ko: '추측으로 메우지 않았다. 사람이 확인해야 한다.', en: 'Not guessed — needs human review.'},
+};
+// analyze()가 만드는 "이름 점검" 사유는 고정된 두 가지뿐이라, 백엔드를 건드리지 않고
+// 여기서 그대로 옮긴다(twbmap.py는 render_md()용 한국어 문구를 계속 그대로 쓴다).
+const RENAME_WHY_EN = {
+  '기본 이름이 그대로 남아 있다': 'Default name left unchanged',
+  '이름에 (복사본)이 남아 있다': 'Name still contains "(copy)"',
+};
+const whyText = w => lang === 'en' ? (RENAME_WHY_EN[w] ?? w) : w;
+let lang = 'ko';
+try { lang = localStorage.getItem('twbmap-lang') || 'ko'; } catch {}
+const t = (key, vars) => {
+  let s = I18N[key][lang];
+  if (vars) for (const k in vars) s = s.replace(`{${k}}`, vars[k]);
+  return s;
+};
+function renderStats() {
+  const c = DATA.counts;
+  stats.innerHTML = lang === 'ko'
+    ? `계산식 ${c.calc} · 파라미터 ${c.param} · 원본 ${c.source}<br>시트 ${c.sheet} · 대시보드 ${c.dashboard} · 최대 ${DATA.analyses.max_layer}층`
+    : `${c.calc} calc · ${c.param} param · ${c.source} source<br>${c.sheet} sheet · ${c.dashboard} dashboard · max depth ${DATA.analyses.max_layer}`;
+}
+function applyI18n() {
+  document.querySelectorAll('[data-i18n]').forEach(el => el.textContent = t(el.dataset.i18n));
+  document.querySelectorAll('[data-i18n-title]').forEach(el => el.title = t(el.dataset.i18nTitle));
+  document.querySelectorAll('[data-i18n-ph]').forEach(el => el.placeholder = t(el.dataset.i18nPh));
+  btnlang.textContent = lang === 'ko' ? 'EN' : '한글';   // 지금 언어가 아니라 눌렀을 때 바뀔 언어를 보여준다
+  renderStats();
+  renderTabs();
+  if (selected) { render(selected, true); renderDetail(selected); }
+}
+btnlang.onclick = () => {
+  lang = lang === 'ko' ? 'en' : 'ko';
+  try { localStorage.setItem('twbmap-lang', lang); } catch {}
+  applyI18n();
+};
+
+/* ---- 좌측 목록 ----
+   폴더는 종류별로 나눈다. CustomDimension/CustomMeasure는 계산식을 Tableau가 이미 붙여둔
+   role(dimension/measure)로 가른다 — 문자·날짜·숫자코드 여부를 직접 추측하지 않는다. */
+const FOLDERS = [
+  {key: 'source', label: 'DataSource', test: n => n.kind === 'source'},
+  {key: 'param', label: 'Parameter', test: n => n.kind === 'param'},
+  {key: 'dim', label: 'CustomDimension', test: n => n.kind === 'calc' && n.role !== 'measure'},
+  {key: 'measure', label: 'CustomMeasure', test: n => n.kind === 'calc' && n.role === 'measure'},
+  {key: 'sheet', label: 'Sheet', test: n => n.kind === 'sheet'},
+  {key: 'dashboard', label: 'Dashboard', test: n => n.kind === 'dashboard'},
+];
+const listed = DATA.nodes.slice()
+  .sort((a, b) => fanIn(b.id) - fanIn(a.id) || a.caption.localeCompare(b.caption, 'ko'));
+let selected = null;
+const collapsedFolders = new Set();
+
+function drawList(filter = '') {
+  const f = filter.trim().toLowerCase();
+  const searching = !!f;
+  list.innerHTML = FOLDERS.map(folder => {
+    const items = listed.filter(folder.test)
+      .filter(n => !f || n.caption.toLowerCase().includes(f) || n.formula.toLowerCase().includes(f));
+    if (searching && !items.length) return '';
+    // 검색 중에는 접힘 상태를 무시한다 — 접힌 폴더 안의 결과를 못 보면 검색이 무의미해진다.
+    const open = searching || !collapsedFolders.has(folder.key);
+    return `<div class="folder-head ${open ? '' : 'collapsed'}" data-folder="${folder.key}">
+        <span class="chev">▾</span>${folder.label}<span class="muted">${items.length}</span></div>` +
+      (open ? items.slice(0, 400).map(n => `<div class="row" data-id="${esc(n.id)}" aria-selected="${n.id === selected}">
+         <i class="dot" style="background:var(${COLOR[n.kind]})"></i>
+         <b title="${esc(n.caption)}">${esc(n.caption)}</b>
+         <span class="fan">${fanIn(n.id) || ''}</span></div>`).join('') : '');
+  }).join('');
+}
+list.onclick = e => {
+  const h = e.target.closest('.folder-head');
+  if (h) {
+    const k = h.dataset.folder;
+    collapsedFolders.has(k) ? collapsedFolders.delete(k) : collapsedFolders.add(k);
+    drawList(q.value);
+    return;
+  }
+  const r = e.target.closest('.row'); if (r) select(r.dataset.id);
+};
+q.oninput = () => drawList(q.value);
+
+/* ---- 리니지 서브그래프 ----
+   상류는 항상 끝까지 간다 ("무엇으로 만들어졌나"는 전체가 있어야 의미가 있다).
+   하류는 기본적으로 계산식만 본다. 시트를 넣으면 사용처가 많은 원본 컬럼에서
+   노드가 150개를 넘어 머리카락 뭉치가 된다 — 시트 목록은 아래 상세에 있다. */
+const MAX_NODES = 120;
+let withSheets = false, clipped = 0;
+// 전체 맵: 시트·대시보드는 뺀다. 넣으면 노드 450·엣지 5천이라 머리카락 뭉치가 된다.
+const ALL = new Set(DATA.nodes.filter(n => ['calc', 'param', 'source'].includes(n.kind)).map(n => n.id));
+let full = false, rev = false;
+
+function lineage(id) {
+  const ok = n => withSheets || !['sheet', 'dashboard'].includes(N.get(n).kind);
+  const keep = new Set([id]);
+  const walk = (map, filter) => {
+    let front = [id];
+    while (front.length) {
+      const next = [];
+      for (const cur of front) for (const nxt of map.get(cur) ?? []) {
+        if (keep.has(nxt) || !filter(nxt)) continue;
+        if (keep.size >= MAX_NODES) { clipped++; continue; }
+        keep.add(nxt); next.push(nxt);
+      }
+      front = next;
+    }
+  };
+  clipped = 0;
+  walk(UP, () => true);
+  walk(DOWN, ok);
+  return keep;
+}
+
+const KIND_ORDER = {source: 0, param: 1, calc: 2, sheet: 3, dashboard: 4};   // 같은 층 안에서도 이 순서로 열을 나눈다
+function groupByKind(ids) {
+  const buckets = new Map();
+  for (const id of ids) {
+    let k = KIND_ORDER[N.get(id).kind] ?? 2;
+    if (rev) k = 4 - k;   // 역방향: 대시보드·시트가 앞, 원본·파라미터가 뒤
+    (buckets.get(k) ?? buckets.set(k, []).get(k)).push(id);
+  }
+  return [...buckets].sort((a, b) => a[0] - b[0]).map(([, v]) => v);
+}
+// 상류가 없는 노드(원본컬럼·파라미터)는 bary가 늘 같아 알파벳순으로만 흩어졌다.
+// 하류로 내려가며 평균을 내면(역방향 barycenter) 같이 쓰이는 것끼리 가깝게 묶인다.
+function downRank(keep) {
+  const ids = [...keep].sort((a, b) => N.get(a).caption.localeCompare(N.get(b).caption, 'ko'));
+  const capRank = new Map(ids.map((id, i) => [id, i]));
+  const memo = new Map();
+  const rank = id => {
+    if (memo.has(id)) return memo.get(id);
+    memo.set(id, capRank.get(id));   // 순환 방어: 계산 중 재호출되면 알파벳 순위로 답한다
+    const downs = (DOWN.get(id) ?? []).filter(d => keep.has(d));
+    const r = downs.length ? downs.reduce((s, d) => s + rank(d), 0) / downs.length : capRank.get(id);
+    memo.set(id, r);
+    return r;
+  };
+  ids.forEach(rank);
+  return memo;
+}
+
+// 시트 이름은 굳이 한 줄로 욱여넣지 않는다 — 박스 폭(LINE_CHARS)에 맞춰 줄바꿈하고,
+// 박스 높이는 줄 수만큼 늘어난다. 다른 종류(계산식 등)는 기존대로 한 줄 말줄임을 쓴다.
+const LINE_CHARS = 24, LINE_H = 14, SHEET_MAX_LINES = 3;
+function wrapLines(s) {
+  const lines = [];
+  for (let i = 0; i < s.length; i += LINE_CHARS) lines.push(s.slice(i, i + LINE_CHARS));
+  return lines.length ? lines : [''];
+}
+function sheetLines(n) {
+  const lines = wrapLines(n.caption);
+  if (lines.length <= SHEET_MAX_LINES) return lines;
+  return [...lines.slice(0, SHEET_MAX_LINES - 1), lines[SHEET_MAX_LINES - 1].slice(0, LINE_CHARS - 1) + '…'];
+}
+const nodeHeight = n => n.kind === 'sheet' ? Math.max(30, 16 + sheetLines(n).length * LINE_H) : 30;
+
+function layout(keep) {
+  // 부분그래프 안에서 층을 다시 계산한다. 전역 층을 쓰면 빈 열이 생긴다.
+  const layer = new Map(), seen = new Set();
+  const depth = id => {
+    if (layer.has(id)) return layer.get(id);
+    if (seen.has(id)) return 0;            // 순환 방어 (파서가 이미 걸러내지만)
+    seen.add(id);
+    const ups = (UP.get(id) ?? []).filter(u => keep.has(u));
+    const d = ups.length ? Math.max(...ups.map(depth)) + 1 : 0;
+    layer.set(id, d); return d;
+  };
+  [...keep].forEach(depth);
+  // 시트는 자기가 실제로 쓰는 계산식들의 깊이만큼 자연스러운 층에 남겨둔다(한 열로 몰지 않는다).
+  // 대시보드는 시트를 참조하므로 자연스러운 층도 항상 그 시트보다 한 칸 오른쪽이지만,
+  // 계산식 없이 파라미터 컨트롤만 올린 대시보드는 상류가 없어 0층으로 잡혀 원본컬럼 열에
+  // 끼어버린다 — 그런 경우까지 포함해 항상 모든 계산식·시트보다 오른쪽으로 밀어준다.
+  const fieldLayers = [...keep].filter(id => N.get(id).kind !== 'dashboard').map(id => layer.get(id));
+  const maxFieldLayer = fieldLayers.length ? Math.max(...fieldLayers) : 0;
+  for (const id of keep) {
+    if (N.get(id).kind === 'dashboard') layer.set(id, maxFieldLayer + 1);
+  }
+  // 역방향은 열 순서만 뒤집는다(실제 상류/하류 관계·n.layer 값은 그대로 둔다).
+  const layerVals = [...keep].map(id => layer.get(id));
+  const maxLayer = layerVals.length ? Math.max(...layerVals) : 0;
+  const effLayer = id => rev ? maxLayer - layer.get(id) : layer.get(id);
+  const cols = new Map();
+  for (const id of keep) (cols.get(effLayer(id)) ?? cols.set(effLayer(id), []).get(effLayer(id))).push(id);
+  const drank = downRank(keep);
+  const pos = new Map();
+  let colX = 0;
+  for (const [, layerIds] of [...cols].sort((a, b) => a[0] - b[0])) {
+    for (const ids of groupByKind(layerIds)) {
+      const kind = N.get(ids[0]).kind;
+      if (kind === 'source') {
+        // 계산식과 가장 많이 연결된 원본컬럼이 위로 오게 정렬한다. 연결 수가 같으면 하류
+        // 순위로 묶어 서로 연결된 것끼리 가깝게 모은다.
+        ids.sort((a, b) => fanIn(b) - fanIn(a) || drank.get(a) - drank.get(b));
+      } else {
+        // 상류 위치의 평균으로 정렬하면 선 교차가 눈에 띄게 준다. 상류가 없으면(파라미터
+        // 등) 하류 순위로 대신 정렬해 서로 연결된 것끼리 가깝게 모은다.
+        ids.sort((a, b) => bary(a, pos) - bary(b, pos) || drank.get(a) - drank.get(b));
+      }
+      if (kind === 'sheet') {
+        // 시트는 이름이 여러 줄로 접혀 높이가 제각각이라, 고정 46px 대신 실제 높이를 누적한다.
+        let y = 0;
+        for (const id of ids) { pos.set(id, {x: colX, y}); y += nodeHeight(N.get(id)) + 16; }
+        colX += 230;
+        continue;
+      }
+      // 원본컬럼·파라미터는 연결 수·연결 관계로 매긴 위→아래 순서가 한눈에 보여야 하므로
+      // 줄바꿈 없이 한 열로 고정한다. 그 외(계산식 등)는 전체 맵에서 0층 같은 열이 130개까지
+      // 쌓여 세로 6,000px 리본이 되므로(맞춤 배율 0.08까지 떨어져 글자가 사라진다) 줄바꿈한다.
+      const rows = (full && kind !== 'source' && kind !== 'param') ? 30 : ids.length;
+      ids.forEach((id, i) => pos.set(id, {x: colX + Math.floor(i / rows) * 230, y: (i % rows) * 46}));
+      colX += Math.ceil(ids.length / rows) * 230 + 20;   // 한 층 = 1열이면 기존과 같은 250 간격
+    }
+  }
+  return pos;
+}
+// 역방향에서는 열이 실제 하류→상류 순서로 채워지므로, 이미 배치된 쪽(하류)의
+// 평균으로 정렬해야 한다. 정방향처럼 항상 UP만 보면 아직 배치 안 된 노드를 참조해 무의미해진다.
+const bary = (id, pos) => {
+  const neighbors = (rev ? DOWN.get(id) : UP.get(id)) ?? [];
+  const ys = neighbors.map(u => pos.get(u)?.y).filter(v => v != null);
+  return ys.length ? ys.reduce((a, b) => a + b, 0) / ys.length : 1e9;
+};
+
+let view = {x: 0, y: 0, k: 1};
+function render(id, keepView) {
+  const keep = full ? ALL : lineage(id);
+  const pos = layout(keep);
+  const W = 200;
+  const edges = DATA.edges.filter(e => keep.has(e.from) && keep.has(e.to));
+  const path = e => {
+    const a = pos.get(e.from), b = pos.get(e.to);
+    const x1 = a.x + W, y1 = a.y + nodeHeight(N.get(e.from)) / 2,
+          x2 = b.x, y2 = b.y + nodeHeight(N.get(e.to)) / 2, m = (x1 + x2) / 2;
+    return `M${x1},${y1} C${m},${y1} ${m},${y2} ${x2},${y2}`;
+  };
+  const label = s => s.length > LINE_CHARS ? s.slice(0, LINE_CHARS - 1) + '…' : s;
+  cam.innerHTML =
+    edges.map(e => `<path class="edge ${e.from === id || e.to === id ? 'hot' : ''}" d="${path(e)}"/>`).join('') +
+    [...keep].map(k => {
+      const n = N.get(k), p = pos.get(k), h = nodeHeight(n);
+      const text = n.kind === 'sheet'
+        ? sheetLines(n).map((l, i) => `<tspan x="10" y="${19 + i * LINE_H}">${esc(l)}</tspan>`).join('')
+        : esc(label(n.caption));
+      return `<g class="node ${k === id ? 'on' : ''}" data-id="${esc(k)}" transform="translate(${p.x},${p.y})">
+        <rect width="${W}" height="${h}" rx="5" stroke="${css(COLOR[n.kind])}"/>
+        <text x="10" y="19">${text}</text></g>`;
+    }).join('');
+
+  drawMini(pos);
+  if (!keepView) fit();
+  clip.textContent = full ? t('clip_full', {n: keep.size, e: edges.length})
+                          : (clipped ? t('clip_cut', {n: MAX_NODES}) : '');
+}
+const applyView = () => {
+  cam.setAttribute('transform', `translate(${view.x},${view.y}) scale(${view.k})`);
+  moveViewRect();
+};
+
+/* ---- 배율 ----
+   확대·축소는 화면 중심(또는 커서)을 고정점으로 둔다. 원점 기준으로 키우면
+   전체 맵처럼 6,000px짜리 그래프에서 보던 자리를 즉시 벗어난다. */
+function zoom(f, cx, cy) {
+  const r = svg.getBoundingClientRect();
+  const k = Math.max(0.04, Math.min(2.5, view.k * f));
+  cx ??= r.width / 2; cy ??= r.height / 2;
+  view.x = cx - (cx - view.x) * (k / view.k);
+  view.y = cy - (cy - view.y) * (k / view.k);
+  view.k = k;
+  applyView();
+}
+function fit() {
+  const xs = [...lastPos.values()];
+  const bw = Math.max(...xs.map(p => p.x)) + 240, bh = Math.max(...xs.map(p => p.y)) + 70;
+  const r = svg.getBoundingClientRect();
+  view = {k: Math.min(1, r.width / bw, r.height / bh), x: 20, y: 20};
+  applyView();
+}
+function setFull(on) {
+  full = on;
+  btnfull.setAttribute('aria-pressed', on);
+  wslabel.hidden = on;   // 전체 맵에는 시트·대시보드가 아예 없으니 체크박스도 숨긴다
+}
+zin.onclick = () => zoom(1.3);
+zout.onclick = () => zoom(1 / 1.3);
+zfit.onclick = () => fit();
+btnfull.onclick = () => { setFull(!full); render(selected); };
+btnrev.onclick = () => { rev = !rev; btnrev.setAttribute('aria-pressed', rev); render(selected); };
+
+/* ---- 미니맵(네비게이터) ----
+   박스를 그래프 비율에 맞춰 줄인다. 고정 크기로 두면 남는 여백이 생기고,
+   그 여백을 찍었을 때 월드 바깥으로 튀어 "찍은 곳으로 간다"가 깨진다. */
+const MINI_W = 190, MINI_H = 210;
+let lastPos = new Map(), miniK = 1;
+function drawMini(pos) {
+  lastPos = pos;
+  const xs = [...pos.values()];
+  const w = Math.max(...xs.map(p => p.x)) + 240, h = Math.max(...xs.map(p => p.y)) + 70;
+  miniK = Math.min(MINI_W / w, MINI_H / h);
+  mini.setAttribute('viewBox', `0 0 ${w * miniK} ${h * miniK}`);
+  mini.style.width = w * miniK + 'px';
+  mini.style.height = h * miniK + 'px';
+  minimap.innerHTML = [...pos].map(([id, p]) =>
+    `<rect x="${p.x * miniK}" y="${p.y * miniK}" width="${Math.max(2, 200 * miniK)}"
+       height="${Math.max(1.5, 30 * miniK)}" fill="${css(COLOR[N.get(id).kind])}" opacity=".8"/>`).join('');
+}
+function moveViewRect() {
+  const r = svg.getBoundingClientRect();
+  viewrect.setAttribute('x', -view.x / view.k * miniK);
+  viewrect.setAttribute('y', -view.y / view.k * miniK);
+  viewrect.setAttribute('width', r.width / view.k * miniK);
+  viewrect.setAttribute('height', r.height / view.k * miniK);
+}
+const miniJump = e => {
+  const b = mini.getBoundingClientRect(), r = svg.getBoundingClientRect();
+  view.x = r.width / 2 - (e.clientX - b.left) / miniK * view.k;
+  view.y = r.height / 2 - (e.clientY - b.top) / miniK * view.k;
+  applyView();
+};
+// 이동이 캡처 성공에 의존하지 않도록 점프를 먼저 한다
+mini.addEventListener('pointerdown', e => { miniJump(e); mini.setPointerCapture(e.pointerId); });
+mini.addEventListener('pointermove', e => { if (e.buttons) miniJump(e); });
+
+svg.addEventListener('wheel', e => {
+  e.preventDefault();
+  const r = svg.getBoundingClientRect();
+  zoom(e.deltaY < 0 ? 1.12 : 1 / 1.12, e.clientX - r.left, e.clientY - r.top);
+}, {passive: false});
+/* 드래그는 실제로 움직이기 시작한 뒤에 포인터를 잡는다.
+   pointerdown에서 곧바로 setPointerCapture를 하면 click 이벤트가 <svg>로 리타깃돼
+   .node까지 내려오지 않는다. 사람 손은 누르고 떼는 사이에 1~3px은 움직이므로
+   "노드를 클릭해도 아무 일도 안 일어난다"가 된다 — 0px 합성 클릭으로는 재현되지 않는다. */
+const DRAG_SLOP = 3;
+let drag = null, justPanned = false;
+svg.addEventListener('pointerdown', e => {
+  drag = {x: e.clientX - view.x, y: e.clientY - view.y, x0: e.clientX, y0: e.clientY, panning: false};
+});
+svg.addEventListener('pointermove', e => {
+  if (!drag) return;
+  if (!drag.panning && Math.hypot(e.clientX - drag.x0, e.clientY - drag.y0) > DRAG_SLOP) {
+    drag.panning = true;
+    svg.setPointerCapture(e.pointerId);   // 여기서부터는 click이 죽어도 된다 (끌었으니까)
+  }
+  if (drag.panning) { view.x = e.clientX - drag.x; view.y = e.clientY - drag.y; applyView(); }
+});
+for (const ev of ['pointerup', 'pointercancel']) svg.addEventListener(ev, () => {
+  if (drag?.panning) justPanned = true;   // setPointerCapture 중이던 click이 <svg>로 리타깃돼 들어온다 — 빈 공간 클릭으로 오인하면 안 된다
+  drag = null;
+});
+cam.addEventListener('click', e => { const g = e.target.closest('.node'); if (g) select(g.dataset.id); });
+// 빈 공간을 클릭하면 전체 맵으로 돌아간다. .node 클릭은 위 cam 리스너가 먼저 처리하고 버블링만 여기로 온다.
+svg.addEventListener('click', e => {
+  if (justPanned) { justPanned = false; return; }
+  if (e.target.closest('.node')) return;
+  setFull(true);
+  render(selected);
+});
+
+/* ---- 상세 ----
+   "사용 시트/대시보드"는 원래 필드(계산식·파라미터·원본) 전용 문구였다 — 하류(DOWN)가
+   "누가 이 필드를 쓰나"이기 때문이다. 시트·대시보드 자신을 고르면 하류가 없거나
+   의미가 달라(대시보드는 하류가 아예 없다) 종류별로 문구와 방향을 나눈다. */
+function renderDetail(id) {
+  const n = N.get(id);
+  const names = ids => (ids ?? []).map(i => esc(N.get(i).caption)).join(', ') || `<span class="muted">${t('detail_none')}</span>`;
+  let usage;
+  if (n.kind === 'sheet') {
+    const fields = (UP.get(id) ?? []).filter(u => ['calc', 'param', 'source'].includes(N.get(u).kind));
+    const dashes = (DOWN.get(id) ?? []).filter(d => N.get(d).kind === 'dashboard');
+    usage = `<div class="muted" style="margin-top:6px">${t('detail_sheet_fields', {a: fields.length, b: dashes.length})}</div>
+      <div>${names(dashes)}</div>`;
+  } else if (n.kind === 'dashboard') {
+    const sheets = (UP.get(id) ?? []).filter(u => N.get(u).kind === 'sheet');
+    usage = `<div class="muted" style="margin-top:6px">${t('detail_dash_sheets', {a: sheets.length})}</div>
+      <div>${names(sheets)}</div>`;
+  } else {
+    const sheets = (DOWN.get(id) ?? []).filter(d => N.get(d).kind === 'sheet');
+    const dashes = [...new Set(sheets.flatMap(s => (DOWN.get(s) ?? [])))];
+    usage = `<div class="muted" style="margin-top:6px">${t('detail_used_sheet_dash', {a: sheets.length, b: dashes.length})}</div>
+      <div>${names(dashes)}</div>`;
+  }
+  detail.innerHTML = `
+    <div><span class="tag">${n.kind}</span><span class="tag">${t('detail_layer', {n: n.layer})}</span>
+      <span class="tag">${t('detail_refcount', {n: fanIn(id)})}</span>
+      ${n.desc ? (n.reviewed ? '' : `<span class="tag draft">${t('detail_draft')}</span>`) :
+                 `<span class="tag">${t('detail_nodesc')}</span>`}
+      <b>${esc(n.caption)}</b></div>
+    ${n.desc ? `<div style="margin-top:6px">${esc(n.desc)}</div>` : ''}
+    ${n.formula ? `<pre>${esc(n.formula)}</pre>` : ''}
+    <div class="muted" style="margin-top:8px">${t('detail_upstream')}</div><div>${names(UP.get(id))}</div>
+    <div class="muted" style="margin-top:6px">${t('detail_downstream')}</div>
+    <div>${names((DOWN.get(id) ?? []).filter(d => ['calc', 'param'].includes(N.get(d).kind)))}</div>
+    ${usage}`;
+}
+function select(id) {
+  selected = id;
+  // 전체 맵에서 필드를 고르면 전체 맵을 풀고 그 필드의 계보를 보여준다 —
+  // 해제 상태에서 고른 것과 똑같은 화면이 되도록.
+  setFull(false);
+  drawList(q.value);
+  render(id);
+  renderDetail(id);
+}
+
+/* ---- 나머지 탭 ----
+   통합 후보·이름 점검·미사용·복잡도 탭은 캡션 문자열만 들고 있다(analyze()의 출력이 그렇다).
+   그래프 노드 클릭과 같은 동작을 시키려면 id가 필요하니 캡션 → id 역인덱스를 만든다.
+   캡션이 겹치는 경우(같은 이름의 컬럼이 데이터소스 두 곳에 있는 것처럼)는 마지막 것으로 덮인다 —
+   완전 동일 로직 표 자체가 이미 그 둘을 구분하지 않고 보여주므로 클릭도 같은 수준이다. */
+const byCaption = new Map(DATA.nodes.map(n => [n.caption, n.id]));
+const fref = c => `<span class="fref" data-id="${esc(byCaption.get(c) ?? '')}">${esc(c)}</span>`;
+document.body.addEventListener('click', e => {
+  const f = e.target.closest('.fref'); if (!f || !f.dataset.id) return;
+  document.querySelector('nav button[data-tab="graph"]').click();
+  select(f.dataset.id);
+});
+
+const an = DATA.analyses;
+const tbl = (head, rows) => rows.length
+  ? `<table><thead><tr>${head.map(h => `<th>${h}</th>`).join('')}</tr></thead><tbody>${
+      rows.map(r => `<tr>${r.map(v => `<td>${v}</td>`).join('')}</tr>`).join('')}</tbody></table>`
+  : `<p class="muted">${t('tbl_empty')}</p>`;
+
+function renderTabs() {
+  merge.innerHTML = `<h2>${t('merge_h_identical')}</h2>
+    ${tbl([t('th_field'), t('th_formula')], an.identical.map(g => [g.fields.map(fref).join(', '), `<code>${esc(g.formula)}</code>`]))}
+    <h2>${t('merge_h_similar', {n: an.similar.length})}</h2>
+    <p class="muted">${t('merge_similar_hint')}</p>
+    ${tbl([t('th_similarity'), t('th_field_a'), t('th_field_b')], an.similar.map(s => [s.ratio, fref(s.a), fref(s.b)]))}`;
+
+  rename.innerHTML = `<h2>${t('tab_rename')}</h2>
+    <div class="warn">${t('rename_warn')}</div>
+    <p>${t('rename_prefix_label')}${an.families.slice(0, 12).map(([p, k]) => `<span class="tag">${esc(p)} ${k}</span>`).join('')}</p>
+    ${tbl([t('th_field'), t('th_reason')], an.rename.map(r => [fref(r.field), esc(whyText(r.why))]))}`;
+
+  misc.innerHTML = `<h2>${t('misc_h_unused')}</h2>
+    <div class="warn">${t('misc_unused_warn')}</div>
+    ${tbl([t('th_field'), t('th_type')], an.unused.map(u => [fref(u.field), u.kind]))}
+    <h2>${t('misc_h_hubs')}</h2>
+    ${tbl([t('th_field'), t('th_type'), t('th_refcount')], an.hubs.map(h => [fref(h.field), h.kind, h.fan_in]))}
+    <p class="muted">${t('misc_leaves', {n: an.leaves, m: an.lod_count})}</p>
+    <h2>${t('misc_h_complex')}</h2>
+    ${tbl([t('th_field'), t('th_length'), t('th_layer'), 'LOD'], an.complex.map(x => [fref(x.field), x.chars, x.layer, x.lod ? 'O' : '']))}
+    ${DATA.unresolved.length ? `<h2>${t('misc_h_unresolved')}</h2>
+      <p class="muted">${t('misc_unresolved_hint')}</p>
+      ${tbl([t('th_field'), t('th_reference')], DATA.unresolved.map(u => [fref(u.field), esc(u.ref)]))}` : ''}`;
+}
+
+document.querySelector('nav').onclick = e => {
+  const b = e.target.closest('button'); if (!b) return;
+  document.querySelectorAll('nav button').forEach(x => x.setAttribute('aria-pressed', x === b));
+  document.querySelectorAll('.pane').forEach(p => p.toggleAttribute('data-on', p.id === b.dataset.tab));
+};
+
+drawList();
+ws.onchange = () => { withSheets = ws.checked; if (selected) select(selected); };
+select((listed.find(n => n.kind === 'calc') ?? listed[0]).id);
+applyI18n();
+</script>
+</body>
+</html>

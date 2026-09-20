@@ -1,0 +1,22 @@
+# 사내 데이터 유출 방지 — 절대 지우지 마라
+*.twbx
+*.twb
+*.hyper
+*.twbr
+~*
+
+# 생성물
+out/
+
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# 워크북별 산출물 — 사내 필드명이 들어간다. 커밋 금지
+descriptions.json
+*.local.*
+
+# --out . 로 실행하면 루트에 떨어진다. 전체 필드명이 들어 있다
+map.json
+map.md
+map.html
