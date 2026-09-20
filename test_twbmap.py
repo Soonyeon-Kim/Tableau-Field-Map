@@ -87,6 +87,61 @@ def test_pointerdown_does_not_capture():
     assert "setPointerCapture" in tpl, "드래그가 화면 밖으로 나가면 끊긴다 — pointermove에서는 잡아야 한다"
 
 
+def test_dashboard_scope_selector():
+    """대시보드 선택기: 2개 미만이면 숨겨져야 하고, 전체 맵은 반드시 dashScope를 거친 뒤 그려야 한다.
+
+    "전체(모든 대시보드)" 옵션은 없다 — 전체 맵의 기준은 항상 대시보드 하나다
+    (대시보드가 하나도 없는 워크북에서만 dashScope가 ''로 빈다). `render()`가 `ALL`을
+    직접 쓰면 대시보드를 골라도 전체 맵이 그대로라 조용히 무시된다 — `fullScope()`를
+    거치는지 확인한다.
+    """
+    tpl = (Path(__file__).parent / "template.html").read_text("utf-8")
+    assert 'id="dashwrap" style="display:none"' in tpl, "기본 숨김 상태가 바뀌었다 — 이 검사를 고쳐라"
+    assert "if (DASHBOARDS.length >= 2) {" in tpl
+    assert "dashwrap.style.display = 'inline-flex';" in tpl
+    assert "const keep = full ? fullScope() : lineage(id);" in tpl, \
+        "전체 맵이 ALL을 직접 참조하면 대시보드 선택이 무시된다"
+    assert "dash_all" not in tpl, "전체(모든 대시보드) 옵션이 되살아났다 — 전체 맵은 대시보드 하나로 고정한다"
+    assert "let dashScope = DASHBOARDS[0]?.id ?? '';" in tpl, \
+        "대시보드가 있으면 기본으로 그중 하나를 스코프로 잡아야 한다"
+    # dashboard -> sheet("show") · field -> sheet("use") 엣지 둘 다 필드/시트가 from이고
+    # 대시보드/시트가 to다. 그래서 "대시보드가 포함한 시트"도 "시트가 쓰는 필드"도
+    # DOWN이 아니라 UP으로 찾아야 한다. 반대로 하면 scopeOf()가 조용히 빈 집합만 반환한다
+    # — 실제로 두 방향 다 한 번씩 틀렸다.
+    assert "const sheets = (UP.get(dashId) ?? []).filter(s => N.get(s).kind === 'sheet');" in tpl, \
+        "scopeOf가 DOWN으로 시트를 찾으면 모든 대시보드 스코프가 조용히 비어버린다"
+    assert "for (const s of sheets) for (const f of UP.get(s) ?? []) {" in tpl, \
+        "scopeOf가 DOWN으로 필드를 찾으면 모든 대시보드 스코프가 조용히 비어버린다"
+    # 시트·대시보드는 이제 체크박스 없이 항상 포함된다 — scopeOf가 자기 자신도 keep에 넣는지 확인.
+    assert "keep.add(dashId);" in tpl and "for (const s of sheets) keep.add(s);" in tpl, \
+        "scopeOf가 대시보드·시트 자신을 keep에 안 넣으면 전체 맵에 시트가 안 보인다"
+    assert 'id="ws"' not in tpl and "withSheets" not in tpl, \
+        "시트·대시보드 포함 체크박스는 제거하고 항상 포함하기로 했다"
+
+
+def test_dashboard_scope_is_top_level_filter():
+    """대시보드 스코프는 맵뿐 아니라 좌측 목록·개별 리니지에도 걸리는 최상위 필터다.
+
+    Dashboard 폴더만 스코프 필터에서 빼야 한다 — 안 그러면 다른 대시보드로 못 옮겨간다.
+    대시보드 파라미터(dashsel)와 좌측 목록의 Dashboard 선택은 값이 항상 같아야 하므로
+    양쪽 다 selectDashboard() 하나로 들어와야 한다 — 따로 두면 한쪽만 바꿨을 때
+    다른 쪽이 조용히 안 맞아버린다.
+    """
+    tpl = (Path(__file__).parent / "template.html").read_text("utf-8")
+    assert "const scope = dashScope ? scopeOf(dashScope) : null;   // 대시보드 스코프 = 최상위 필터" in tpl, \
+        "lineage()의 하류가 대시보드 스코프를 안 타면 최상위 필터가 아니다"
+    assert "walk(DOWN, n => !scope || scope.has(n));" in tpl
+    assert "folder.key === 'dashboard' || !scope || scope.has(n.id)" in tpl, \
+        "좌측 목록이 스코프를 안 타면 Sheet/Parameter/CustomDimension/CustomMeasure/DataSource가 안 걸러진다"
+    assert "if (N.get(id).kind === 'dashboard') { selectDashboard(id); return; }" in tpl, \
+        "그래프·좌측 목록 어디서 대시보드를 골라도 select()를 거치므로 여기서 갈라야 한다"
+    assert "function selectDashboard(dashId) {" in tpl
+    assert "dashsel.value = dashId;" in tpl, \
+        "좌측 목록에서 대시보드를 고르면 dashsel 값도 따라가야 한다(반대 방향은 이미 dashsel이 select 값)"
+    assert "dashsel.onchange = () => selectDashboard(dashsel.value);" in tpl, \
+        "dashsel 변경도 selectDashboard 하나로 들어와야 좌측 목록과 어긋나지 않는다"
+
+
 def test_unresolved_is_not_silent():
     """해석 못 한 참조가 있으면 조용히 성공하면 안 된다 (PRD 성공 기준: 환각 없음)."""
     with tempfile.TemporaryDirectory() as d:
