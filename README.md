@@ -1,4 +1,4 @@
-# tableau_calculation_map
+# Tableau-Field-Map
 
 Tableau 워크북(`.twbx`)의 계산식이 **원본 컬럼에서 어떻게 만들어졌는지**를 그려주는 CLI.
 의존 관계 목록이 아니라 리니지(계보) 파이프라인이고, 그 위에서 통합·리네임 후보까지 제안한다.

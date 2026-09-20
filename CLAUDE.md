@@ -1,4 +1,4 @@
-# CLAUDE.md — tableau_calculation_map
+# CLAUDE.md — Tableau-Field-Map
 
 Tableau 워크북(`.twbx`)의 계산식 리니지 맵을 만드는 CLI. 콜드스타트 요약은 `ESSENTIAL.md`, 설계 배경은 `docs/PRD.md`, 구조는 `docs/ARCHITECTURE.md`.
 
@@ -51,7 +51,7 @@ PYTHONUTF8=1 python test_twbmap.py
 ## 커밋
 
 - 커밋과 push는 **사용자가 요청할 때만** 한다
-- 이 폴더는 **독립 repo**다 — `Soonyeon-Kim/tableau_calculation_map` (main). 커밋은 이 폴더 안에서 한다
+- 이 폴더는 **독립 repo**다 — `Soonyeon-Kim/Tableau-Field-Map` (main). 커밋은 이 폴더 안에서 한다
 - `main` → `origin/main` 직접 push 한다. 브랜치·PR은 쓰지 않는다
 - 커밋 메시지 접두어는 쓰지 마라. repo 이름이 곧 맥락이다
 - **스테이징한 파일을 커밋 전에 눈으로 확인하라.** `.twbx`·`.twbr`은 사내 데이터라

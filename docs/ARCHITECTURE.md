@@ -3,7 +3,7 @@
 ## 디렉토리 구조
 
 ```
-tableau_calculation_map/
+<repo 폴더>/
 ├── twbmap.py            # 전부: 파싱 → 그래프 → 분석 → 렌더 (단일 파일)
 ├── template.html        # 단일 파일 SVG 뷰어(외부 라이브러리·CDN 없음). __DATA__에 JSON 주입
 ├── test_twbmap.py       # assert 기반. 워크북 실측값은 fixtures.local.json(gitignore)

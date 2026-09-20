@@ -9,7 +9,7 @@ stdlib만 쓴다. 설치할 것도, API 키도, 인터넷도 필요 없다.
 ## 5분 실행
 
 ```bash
-cd tableau_calculation_map
+cd <repo 폴더>          # GitHub 저장소명과 로컬 폴더명이 다를 수 있다
 PYTHONUTF8=1 python twbmap.py "<워크북>.twbx"
 PYTHONUTF8=1 python test_twbmap.py          # 8/8 통과해야 정상
 ```
