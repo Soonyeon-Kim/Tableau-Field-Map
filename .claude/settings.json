@@ -1,0 +1,25 @@
+{
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell.exe",
+            "args": [
+              "-NoProfile",
+              "-ExecutionPolicy",
+              "Bypass",
+              "-File",
+              "${CLAUDE_PROJECT_DIR}/.claude/hooks/verify-gate.ps1",
+              "-Cmd",
+              "python test_twbmap.py"
+            ],
+            "timeout": 120,
+            "statusMessage": "검증 게이트 실행 중..."
+          }
+        ]
+      }
+    ]
+  }
+}

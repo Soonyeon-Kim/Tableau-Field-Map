@@ -11,7 +11,7 @@ Tableau 워크북(`.twbx`)의 계산식 리니지 맵을 만드는 CLI. 콜드�
 
 ```bash
 PYTHONUTF8=1 python twbmap.py "<파일.twbx>" --out out/
-PYTHONUTF8=1 python test_twbmap.py
+PYTHONUTF8=1 python test_twbmap.py     # 10/10 통과 기대. 세션 종료 시 Stop 훅(.claude/hooks/verify-gate.ps1)이 자동 실행한다
 ```
 
 - `python3`이 아니라 `python`이다. `python3`은 Windows Store 스텁이다
